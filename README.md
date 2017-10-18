@@ -1,6 +1,6 @@
 ## PoorSQL.com Website Repository
 
-This repository hosts the source code for the PoorSQL.com online (and offline) T-SQL Formatting Tool.
+This repository hosts the source code for the http://poorsql.com online (and offline) T-SQL Formatting Tool.
 
 This in turn uses the Poor Man's T-SQL Formatter Library (originally .Net and transpiled to JS).
 
@@ -8,7 +8,17 @@ The site code is hosted in the "docs" folder, and this root folder contains util
 
 This site is released under the Affero GPL license.
 
-Credits - third-party code used in site functionality:
+### Issues
+
+Please report any site-specific issues here (https://github.com/TaoK/poorsql.com/issues), and report any library-general issues in that project: https://github.com/TaoK/PoorMansTSqlFormatter/issues
+
+### News
+
+To keep up with any news related to the site or library, follow [@PoorSQL](https://twitter.com/PoorSQL) on Twitter.
+
+### Credits
+
+Third-party code used in site functionality:
 * Poor Man's T-SQL Formatter 
 * Bridge.Net - Apache license - Object.NET
 * jQuery - MIT license - John Resig
