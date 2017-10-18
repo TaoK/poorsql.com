@@ -1,0 +1,924 @@
+<!DOCTYPE html >
+<html manifest="manifest.appcache">
+<head>
+
+<title rel="localize[pageTitle]">Poor SQL - Instant Free and Open-Source T-SQL Formatting</title>
+
+<meta name="keywords" content="TSQL formatting, Open-Source TSQL Formatter, TSQL syntax highlighting, C# open-source, poor man's t-sql formatter, free sql formatter, open-source sql formatter, free tsql beautifier, ssms formatting add-in, notepad++ sql formatting plugin, sql obfuscator, tsql obfuscation, tsql minifier " />
+<meta name="description" content="PoorSQL.com is a free online T-SQL formatting service using the open-source .Net 2.0 Poor Man's T-SQL Formatter library." />
+
+<script type="text/javascript" src="js/jquery-1.5.2.min.js"></script> 
+<script type="text/javascript" src="js/jquery-ui-1.8.13.custom.min.js"></script> 
+<script type="text/javascript" src="js/jquery.plugins.compiled.js"></script> 
+<script type="text/javascript" src="js/formattingengine.js"></script> 
+
+<link type="text/css" href="css/smoothness/jquery-ui-1.8.13.custom.css" rel="stylesheet" />
+
+<!-- [if lt IE 8]>
+<script src="http://ie7-js.googlecode.com/svn/version/2.1(beta4)/IE8.js"></script>
+<![endif]-->
+
+<style type="text/css">
+body {
+	font-family: arial, sans-serif;
+	line-height: 150%;
+	background-color: #CCCCCC;
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+}
+
+.OuterContainer {
+	position: relative;
+	width: 80%;
+	margin: 10px auto;
+	background-color: #FFFFFF;
+	border: 1px solid #333333;
+	border-radius: 4px;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px;
+	padding: 25px;
+}
+
+.HeadingContainer {
+	margin-bottom: 1.5em;
+	margin-right: 240px;
+//	font-size: 13px;
+}
+
+.HeadingContainer h1 {
+	font-family: verdana, arial, sans-serif;
+	display: inline;
+	padding: 0;
+	margin: 0;	
+}
+
+a:link[class="ClearLink"], a:visited[class="ClearLink"], a:hover[class="ClearLink"], a:active[class="ClearLink"] {
+	text-decoration: none;
+	color: black;
+}
+
+.InfoBar {
+	position: absolute;
+	right: 25px;
+	top: 10px;
+	text-align: right;
+	font-weight: bold;
+	font-size: 14px;
+}
+
+.ModalDialog {
+	/* this is because the jQuery UI css makes the font larger, and I 
+	 don't want to go mess with that super-complex CSS file.
+	*/
+	font-size: 80%;
+}
+
+.CentralContainer {
+	position: relative;
+}
+
+.MainContainer {
+	margin-right: 350px;
+	/* note: as this container only contains a floating div, its height is 0px! */
+}
+
+#tabs {
+	/* this is to create a new float scope, so the jQuery UI tabs stuff 
+	 doesn't get affected by the right float options area. 
+	*/
+	float: left;
+	width: 100%;
+	/* this is because the jQuery UI css makes the font larger, and I 
+	 don't want to go mess with that super-complex CSS file.
+	*/
+	font-size: 90%;
+}
+
+.OptionsContainer {
+	position: absolute;
+	right: 0px;
+	top: 0px;
+	padding: 10px;
+	padding-top: 20px;
+	padding-bottom: 25px;
+	/* why isn't my box-sizing working?? */
+	width: 310px;
+	font-size: 80%;
+	border: 1px solid #333333;
+	border-radius: 4px;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px;
+}
+
+.Footer {
+	clear: both;
+	padding-top: 10px;
+	text-align: center;
+	font-size: 70%;
+	color: #444444;
+}
+
+.LabelledFormList {
+	margin-left: 30px;
+}
+
+.FormEntry {
+}
+
+.FormEntry input[type="text"] {
+	width: 80px;
+	/* do SOMETHING to make these look better... */
+}
+
+#FullFormattingOptions {
+}
+
+.FormSubEntry {
+	margin-left: 30px;
+}
+
+</style>
+
+<script type="text/javascript"> 
+var Translation = function() {
+
+  var _translationPackage = "poorsql";
+  var _validLanguages = [];
+
+  var getTranslationPackage = function() { return _translationPackage; };
+  var getValidLanguages = function() { return _validLanguages; };
+
+  // Utility function for translating arbitrary JS strings - SHOULD INCORPORATE INTO PLUGIN!!!
+  var translateTerm = function(key, englishMessage) {
+    if ($.localize.data && $.localize.data[_translationPackage] && $.localize.data[_translationPackage][key])
+      return $.localize.data[_translationPackage][key];
+    else 
+      return englishMessage;
+  }
+
+  var ExtractLanguageList = function(acceptLanguageStringRaw) {
+    var languagesRaw = acceptLanguageStringRaw.split(",");
+    var languagesOrdered = languagesRaw.sort(function(entry1, entry2) {
+      return parseFloat(entry2.split(";")[1] || "1") - parseFloat(entry1.split(";")[1] || "1");
+    });
+    var languagesClean = [];
+    $.each(languagesOrdered, function(i, languageRaw){
+      if (languageRaw.indexOf(";") >= 0)
+        languagesClean[i] = languageRaw.substring(0, languageRaw.indexOf(";")); 
+      else
+        languagesClean[i] = languageRaw; 
+    });
+    return languagesClean;
+  }
+
+  var GetBestLanguage = function(validLanguages, requestedLanguages, fallbackLanguage) {
+    //worst possible match - default value
+    var bestLanguageSoFar = fallbackLanguage;
+
+    //better match - basic default language
+    if ($.inArray($.defaultLanguage.substring(0, 2), validLanguages) >= 0)
+      bestLanguageSoFar = $.defaultLanguage.substring(0, 2);
+
+    //better yet - full default language
+    if ($.inArray($.defaultLanguage, validLanguages) >= 0)
+      bestLanguageSoFar = $.defaultLanguage;
+
+    //better still, match from preference list
+    $.each(requestedLanguages, function(i, requestedLanguage){
+      //exact match
+      if ($.inArray(requestedLanguage, validLanguages) >= 0) {
+        bestLanguageSoFar = requestedLanguage;
+        return false;
+      }
+      //basic language match
+      if (requestedLanguage.length > 2 && $.inArray(requestedLanguage.substring(0, 2), validLanguages) >= 0) {
+        bestLanguageSoFar = requestedLanguage.substring(0, 2);
+        return false;
+      }
+    });
+
+    return bestLanguageSoFar;
+  }
+
+  return {
+    translateTerm: translateTerm,
+    ExtractLanguageList: ExtractLanguageList,
+    GetBestLanguage: GetBestLanguage,
+    getTranslationPackage: getTranslationPackage,
+    getValidLanguages: getValidLanguages
+  };
+}();
+
+
+
+var GitHubDemo = function() {
+  //list of demo files, to be retrieved only once (per page load - this is an entirely ajax "App")
+  var _demoFiles;
+
+  var getDemoFiles = function() { return _demoFiles; };
+
+  //utility function for iterating github tree entries looking for an entry by name
+  var GetGitHubTreeEntryUrlByName = function(gitHubTreeCollection, targetPathName) {
+    var returnValue;
+    $.each(gitHubTreeCollection, function(ignorableIndex, treeEntry) {
+      if (treeEntry.path === targetPathName) {
+        returnValue = treeEntry.url;
+        return false;
+      }
+    });
+    return returnValue;
+  }
+
+  //list-retrieval process; need to walk the path with consecutive calls unfortunately.
+  var LoadDemoFileListFromGitHub = function(listLoadedCallback, failureCallback) {
+    $.jsonp({
+      "url": "https://api.github.com/repos/TaoK/PoorMansTSqlFormatter/commits?per_page=2",
+      "dataType": "jsonp",
+      "callbackParameter": "callback",
+      "success": function(commitsData) {
+        $.jsonp({
+          "url": commitsData.data[0].commit.tree.url, 
+          "dataType": "jsonp",
+          "callbackParameter": "callback",
+          "success": function(rootTreeData) {
+            $.jsonp({
+              "url": GetGitHubTreeEntryUrlByName(rootTreeData.data.tree, 'PoorMansTSqlFormatterTest'), 
+              "dataType": "jsonp",
+              "callbackParameter": "callback",
+              "success": function(testProjectTreeData) {
+                $.jsonp({
+                  "url": GetGitHubTreeEntryUrlByName(testProjectTreeData.data.tree, 'Data'),
+                  "dataType": "jsonp",
+                  "callbackParameter": "callback",
+                  "success": function(testDataTreeData) {
+                    $.jsonp({
+                      "url": GetGitHubTreeEntryUrlByName(testDataTreeData.data.tree, 'InputSql'),
+                      "dataType": "jsonp",
+                      "callbackParameter": "callback",
+                      "success": function(inputSqlTreeData) {
+                        _demoFiles = inputSqlTreeData.data.tree;
+                        listLoadedCallback();
+                      },
+                      "error": failureCallback
+                    });
+                  },
+                  "error": failureCallback
+                });
+              },
+              "error": failureCallback
+            });
+          },
+          "error": failureCallback
+        });
+      },
+      "error": failureCallback
+    });
+  }
+
+  var LoadDemoDataFromGitHub = function(demoEntryID) {
+    $.jsonp({
+      "url": _demoFiles[demoEntryID].url,
+      "dataType": "jsonp",
+      "callbackParameter": "callback",
+      "success": function(blobResponse) {
+        var SqlContent = $.base64Decode(blobResponse.data.content);
+        if (SqlContent.charCodeAt(0) == 65279) //remove BOM
+          SqlContent = SqlContent.substring(1);
+        $("#tab1link").click();
+        $("#inputString").val(SqlContent);
+        $('#demo-dialog').dialog('close');
+        $("#inputString").focus();
+      }
+    });
+  }
+
+  return {
+    getDemoFiles: getDemoFiles,
+    LoadDemoFileListFromGitHub: LoadDemoFileListFromGitHub,
+    LoadDemoDataFromGitHub: LoadDemoDataFromGitHub
+  }
+}();
+
+var SelectionStuff = function() {
+  var SelectText = function(elementToSelect) {
+    var range, selection;
+    if (document.body.createTextRange) {
+      range = document.body.createTextRange();
+      range.moveToElementText(elementToSelect);
+      range.select();
+    } 
+    else if (window.getSelection) {
+      selection = window.getSelection();
+      range = document.createRange();
+      range.selectNodeContents(elementToSelect);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  }
+  return {
+    SelectText: SelectText
+  }
+}();
+
+var PageStuff = {};
+PageStuff.Translation = function() {
+  var retrieveValidLanguagesFromPage = function() {
+    $("#LanguageSelection option").each(function(i, languageOption){
+      Translation.getValidLanguages()[i] = $(languageOption).val();
+    });
+  }
+
+  var _bindTranslation = function(requestedLanguageList) {
+    //set a default
+    bestDefaultLanguage = Translation.GetBestLanguage(Translation.getValidLanguages(), requestedLanguageList, "en");
+    $("#LanguageSelection option[value='" + bestDefaultLanguage + "']").attr('selected', 'selected');    
+
+    //set drop-down to the hidden value (cookie or querystring), if provided
+    $("#LanguageSelection option[value='" + $("#LanguageHidden").val() + "']").attr('selected', 'selected');
+
+    //set language change handler
+    $("#LanguageSelection").change(function() {
+      //save language preference
+      $("#LanguageHidden").val($(this).val());
+      PageStuff.Settings.ReadFormAndStoreOptions();
+      //actually translate to the requested language
+      $("[rel*=localize]").localize(Translation.getTranslationPackage(), { language: $(this).val(), pathPrefix: "localization", sourceLanguage: "en" })
+    });
+
+    //if initial selected language is not english, translate!
+    if ($("#LanguageSelection").val() != 'en')
+      $("#LanguageSelection").change();
+  }
+
+  var detectServerLangAndBind = function () {
+    //get the languages we should be accepting 
+    // using concepts from: http://stackoverflow.com/questions/1043339/javascript-for-detecting-browser-language-preference
+    // and: http://www.thefutureoftheweb.com/blog/use-accept-language-header
+    // SHOULD MODIFY THE LOCALIZATION PLUGIN to do most of this, like the fallback string lookup stuff.
+	/*
+	Unfortunately, with the move to GitHub static hosting, no more running server-side scripts to get browser laguage info from HTTP_ACCEPT_LANGUAGE.
+	I'll have to follow up on JS-based techniques some other time. StackOverflow suggests window.navigator.language may be the way to go.
+    $.ajax({ 
+      url: "AcceptLanguageCheck.asmx/GetAcceptedLanguages?", 
+      dataType: 'xml', 
+      timeout: 5000,
+      success: function(languageXml) {
+        var resultstring = $("string", languageXml).text();
+        _bindTranslation(Translation.ExtractLanguageList(resultstring));
+      },
+      error: function() {
+        _bindTranslation("");
+      }
+    });  
+	*/
+    _bindTranslation("");
+  }
+
+  return {
+    retrieveValidLanguagesFromPage: retrieveValidLanguagesFromPage,
+    detectServerLangAndBind: detectServerLangAndBind
+  }
+}();
+
+PageStuff.UI = function() {
+
+  var iFrameLoaded = false;
+  var outputTarget;
+  var getOutputTarget = function() { return outputTarget; }
+  
+  var SetUpTabs = function() {
+    $("#tabs").tabs();
+  }
+
+  var setIFrameLoaded = function() {
+    iFrameLoaded = true;
+  }
+
+  var DetectOutputMethod = function(followUpHandler) {
+    if (iFrameLoaded) {
+      var whatsInTheIFrame;
+      try {
+        whatsInTheIFrame = $("#outputFrame").contents().find("body").html();
+        outputTarget = $("#outputFrame").contents().find("body");
+      }
+      catch (ex) {
+        $("#outputIFrameContainer").hide();
+        $("#outputDivContainer").show();
+        outputTarget = $("#outputDiv");
+      }
+      followUpHandler();
+    }
+    else {
+      setTimeout(function() {DetectOutputMethod(followUpHandler);}, 200);
+    }
+  }
+
+  return { 
+    SetUpTabs: SetUpTabs,
+    DetectOutputMethod: DetectOutputMethod,
+    getOutputTarget: getOutputTarget,
+    setIFrameLoaded: setIFrameLoaded
+  }
+}();
+
+PageStuff.DemoStuff = function() {
+  var _handleDemoLinkClick = function() {
+    $('#demo-dialog').dialog({width: 500, modal: true});
+    if (GitHubDemo.getDemoFiles() == undefined) {
+      $('#demo-dialog p').html(Translation.translateTerm("githubStarting", "Getting list from GitHub..."));
+      GitHubDemo.LoadDemoFileListFromGitHub(_handleGitHubExtractionSuccess, _handleGitHubExtractionFailure);
+    }
+  }
+
+  var _handleGitHubExtractionSuccess = function() {
+    $('#demo-dialog p').html(Translation.translateTerm("demoListIntro", "This is the list of test files used in the Poor Man's T-SQL Formatter project, illustrating formatting for different aspects of T-SQL code:"));
+    $('#demo-dialog p').append("<ul></ul>");
+    $.each(GitHubDemo.getDemoFiles(), function(entryIndex, fileEntry) {
+      var listItem = $("<li><a href=\"javascript: var dummy = null; \">" + fileEntry.path + "</a></li>");
+      $("a", listItem).click(function(){GitHubDemo.LoadDemoDataFromGitHub(entryIndex);});
+      $('#demo-dialog p').append(listItem);
+    });
+  }
+
+  var _handleGitHubExtractionFailure = function(xOptions, textStatus) {
+    alert(JSON.stringify(xOptions));
+    alert(textStatus);
+    $('#demo-dialog p').html(Translation.translateTerm("githubError", "Failed to get list from GitHub! Please contact me - email address at bottom of page."));
+  }
+
+  var BindDemoLink = function() {
+    //set up demo link
+    $("#DemoLink").click(_handleDemoLinkClick);
+  }
+
+  return {
+    BindDemoLink: BindDemoLink
+  }
+}();
+
+PageStuff.Settings = function() {
+
+  var PopulateOptionsFromCookies = function() {
+    var optionsCookieValue = $.cookie('PoorSqlOptions');
+    if (optionsCookieValue != null && optionsCookieValue != "")
+      $(".OptionsContainer").deserialize(optionsCookieValue, {checkboxesAsBools: true});
+  }
+
+  var PopulateOptionsFromQueryString = function() {
+    var querystringContent = $.url().attr('query');
+    if (querystringContent != null && querystringContent != "")
+      $(".OuterContainer").deserialize(querystringContent, {checkboxesAsBools: true});
+  }
+
+  var ReadFormAndStoreOptions = function() {
+    //simple serialization for bools & radios
+    var optionsParamString = $("#FullFormattingOptions input[type='checkbox']").serialize({ checkboxesAsBools: true });
+    optionsParamString += '&' + $("#ObfuscationOptions input[type='checkbox']").serialize({ checkboxesAsBools: true });
+    optionsParamString += '&' + $("#FullFormatting, #ColorizeOnly, #Obfuscate").serialize();
+
+	
+    //TODO: validate the form
+    var problemFound = false;
+    optionsParamString += '&' + $("#IndentString").serialize();
+    optionsParamString += '&' + $("#SpacesPerTab").serialize();
+    optionsParamString += '&' + $("#MaxWidth").serialize();
+    optionsParamString += '&' + $("#StatementBreaks").serialize();
+    optionsParamString += '&' + $("#ClauseBreaks").serialize();
+    optionsParamString += '&' + $("#LanguageHidden").serialize();
+	
+    //store cookie for next pageload/visit
+    $.cookie('PoorSqlOptions', optionsParamString, { expires: 700 });
+
+	if (!problemFound)
+      return optionsParamString;
+  }
+
+  return { 
+    PopulateOptionsFromCookies: PopulateOptionsFromCookies,
+    PopulateOptionsFromQueryString: PopulateOptionsFromQueryString,
+    ReadFormAndStoreOptions: ReadFormAndStoreOptions
+  }
+}();
+
+PageStuff.Formatting = function() {
+  var engineInUse = null;
+  var jsEngineInitialized = false;
+  var scriptsPrefix;
+  var scriptsWorkerFile;
+  var scriptsList;
+
+  var _HandleFormattingError = function (errorMessage) {
+    if (!!errorMessage)
+      console.log("Error: " + errorMessage);
+  
+    var outMessage = "Formatting failed.";
+  
+    PageStuff.UI.getOutputTarget().html(outMessage);
+  }
+
+  var _setOutputContent = function(paramLength, outputString) {
+    var outHtml = outputString
+      .replace("{PARSEERRORPLACEHOLDER}", Translation.translateTerm("parseErrorWarningText", "--WARNING! ERRORS ENCOUNTERED DURING SQL PARSING! <br />"));
+    if (paramLength < 2000 && paramLength > 0)
+      $("#resultLink").show();
+    $("#tab2link").click();
+    PageStuff.UI.getOutputTarget().html(outHtml);
+    $("#outputSource").val(outHtml);
+  }
+
+  var _checkEngineState = function() {
+  
+    //if we're already initialized AND the appropriate environment is ready, then skip
+    if (engineInUse === "js") {
+      _HandleFormatEvent();
+      return;
+    }
+	
+    //disable everything (except the engine checkbox) before we figure out what's what
+    engineInUse = null;
+    $("input").attr("disabled", "disabled");
+    $("textarea").attr("disabled", "disabled");
+    $("#inputString").unbind('change', _checkEngineState);
+    $("#inputString").unbind('blur', _checkEngineState);
+
+    //actually initialize, and if successful reenable everything.
+      if (!jsEngineInitialized) {
+        JsFormattingEngine.LoadEnvironment(
+          scriptsPrefix,
+          scriptsWorkerFile,
+          scriptsList,
+          function () {jsEngineInitialized = true; engineInUse = "js"; _engineInitializedFollowup();}, 
+          _setOutputContent,
+          _HandleFormattingError
+        );
+	    }
+	    else {
+        engineInUse = "js";
+	      _engineInitializedFollowup();
+	    }
+  }
+
+  var _engineInitializedFollowup = function() {
+    //bind entry text change event to all relevant controls (input string + options)
+    $("#inputString").change(_checkEngineState);
+    $("#inputString").blur(_checkEngineState);
+	
+    //enable everything - we're good to go!
+    $("input").removeAttr("disabled");
+    $("textarea").removeAttr("disabled");
+    
+    //call the actual work if there is a query
+    if ($("#inputString").val() != '')
+      _HandleFormatEvent();
+  }
+
+
+  var _HandleFormatEvent = function() {
+
+    //get serialized options (or empty string if there's a problem)
+    var currentOptions = PageStuff.Settings.ReadFormAndStoreOptions();
+	
+    if (currentOptions) {
+      var formatTypeFragment;
+      if ($("#FullFormatting:checked").val()) {
+        formatTypeFragment = "&reFormat=true&obfuscate=false";
+      }
+      else if ($("#Obfuscate:checked").val()) {
+        formatTypeFragment = "&reFormat=false&obfuscate=true";
+      }
+      else {
+        formatTypeFragment = "&reFormat=false&obfuscate=false";
+      }
+      var paramString = $("#inputString").serialize() + '&' + currentOptions + formatTypeFragment;
+      //set waiting message in the output regions
+      $("#resultLink").hide();
+      $("#resultLink").attr("href", location.href.split('?')[0] + '?' + paramString);
+      $("#tab2link").click();
+      PageStuff.UI.getOutputTarget().html(Translation.translateTerm("pleaseWait", "Getting formatted SQL, please wait..."));
+      $("#outputSource").val("");
+      //send content to the web service, with response handling defined
+      _FormatInput(paramString, _setOutputContent, _HandleFormattingError)
+    }
+  }
+
+  var _FormatInput = function(parameterString, successHandler, errorHandler) {
+    JsFormattingEngine.RequestFormatting(parameterString);
+  }
+
+  var SetUpScripts = function(prefix, workerFile, scriptArray) {
+    scriptsPrefix = prefix;
+    scriptsWorkerFile = workerFile;
+    scriptsList = scriptArray;
+  }
+
+  var InitializeFormatting = function() {
+    $(".OptionsContainer input").change(_checkEngineState);
+    _checkEngineState();
+  }
+
+  return { 
+    SetUpScripts: SetUpScripts,
+    InitializeFormatting: InitializeFormatting
+  }
+}();
+
+</script>
+
+<script type="text/javascript"> 
+$(function() {
+  var minflag = true;
+
+  PageStuff.UI.SetUpTabs();
+  PageStuff.Formatting.SetUpScripts(
+    document.location.href.split("?")[0].replace('default.htm', ''),
+    'js/formattingworker.js',
+    [
+      'js/bridge.' + (minflag ? "min." : "") + 'js', 
+      'js/bridge.meta.' + (minflag ? "min." : "") + 'js', 
+      'js/PoorMansTSqlFormatterJS.' + (minflag ? "min." : "") + 'js', 
+      'js/PoorMansTSqlFormatterJS.meta.' + (minflag ? "min." : "") + 'js',
+      'js/formattingmapper.js'
+  ]);
+  PageStuff.UI.DetectOutputMethod(function() {
+    PageStuff.DemoStuff.BindDemoLink();
+    PageStuff.Translation.retrieveValidLanguagesFromPage();
+    PageStuff.Settings.PopulateOptionsFromCookies();
+    PageStuff.Settings.PopulateOptionsFromQueryString();
+    PageStuff.Translation.detectServerLangAndBind();
+    PageStuff.Formatting.InitializeFormatting();
+  });
+});
+</script>
+
+<script type="text/javascript"> 
+//this actually need to run "raw" in the page load - updateready happens early
+if (window.applicationCache) {
+  applicationCache.addEventListener('updateready', function() {
+    $("#updateready").show();
+  });
+}
+</script>
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-24586983-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</head>
+<body>
+<div class="OuterContainer">
+
+<div class="HeadingContainer">
+	<a class="ClearLink" href="/"><h1>Poor SQL</h1></a>: <span rel="localize[pageSubHeader]">Take pity on your SQL with instant, 
+	free and open-source, online or offline formatting using the 
+	<a href="http://architectshack.com/PoorMansTSqlFormatter.ashx">Poor Man's T-SQL Formatter</a> 
+	library. If you like it, download the 
+	<a href="http://architectshack.com/PoorMansTSqlFormatter.ashx#Download_5">SSMS / Visual Studio plugin</a>, 
+	the <a href="http://architectshack.com/PoorMansTSqlFormatter.ashx#Download_5">command-line bulk formatter</a>, 
+	and/or the <a href="http://architectshack.com/PoorMansTSqlFormatter.ashx#Download_5">WinMerge plugin</a> 
+	to integrate it into your workflow - equally free. (Or if you're feeling cruel, obfuscate your SQL instead!) <br/> <br/>
+    NEW: Now use poorsql.com regardless of whether you're connected to the internet - it now automatically works offline!
+	</span> 
+</div>
+
+<div class="InfoBar">
+	<div>
+		<span style="font-size: smaller; ">v1.6.1, Oct 2017</span> - <a href="http://architectshack.com/PoorMansTSqlFormatter.ashx#Download_5" rel="localize[download]">Download</a>
+	</div>
+	<div>
+		<a href="javascript:var goaway = $('#about-dialog').dialog({width: 500, modal: true});" rel="localize[about]">About</a>
+	</div>
+	<div>
+		<a href="javascript:var goaway = $('#tips-dialog').dialog({width: 500, modal: true});" rel="localize[tips]">Tips</a>
+	</div>
+	<div>
+		<a href="javascript:var goaway = null; " id="DemoLink" rel="localize[demos]">Demos</a>
+	</div>
+    <div id="updateready" style="display: none; " >
+        <span rel="localize[updateavailable]">Update available: </span>
+		<a href="javascript:var goaway = window.location.reload(); " rel="localize[reload]">Reload</a>
+    </div>
+</div>
+
+<div class="CentralContainer">
+	<div class="OptionsContainer">
+		<div style="width=100%; text-align: right; " >
+			<label for="LanguageSelection" rel="localize[language]">Language: </label>
+			<select name="languageSelection" id="LanguageSelection">
+				<option rel="localize[english]" value="en" selected="selected">English</option>
+				<option rel="localize[french]" value="fr">French</option>
+				<option rel="localize[spanish]" value="es">Spanish</option>
+			</select>
+            <input type="hidden" name="language" value=""  id="LanguageHidden" />
+		</div>
+		<div>
+			<label><input type="radio" name="formattingType" value="identity" id="ColorizeOnly" /> <span rel="localize[colorizeOnly]">Colorize Only</span></label>
+		</div>
+		<div>
+			<label><input type="radio" name="formattingType" value="standard" id="FullFormatting" checked="checked" /> <span rel="localize[fullFormatting]">Full Formatting</span></label>
+			<div class="LabelledFormList" id="FullFormattingOptions">
+				<div class="FormEntry">
+					<label for="IndentString" rel="localize[indentString]">Indent String: </label>
+					<input type="text" value="\t" name="indent" id="IndentString" />
+				</div>
+				<div class="FormEntry">
+					<label for="SpacesPerTab" rel="localize[spacesPerTab]">Spaces per Tab: </label>
+					<input type="text" value="4" name="spacesPerTab" id="SpacesPerTab" />
+				</div>
+				<div class="FormEntry">
+					<label for="MaxWidth" rel="localize[maxWidth]">Max Width (chars): </label>
+					<input type="text" value="999" name="maxLineWidth" id="MaxWidth" />
+				</div>
+				<div class="FormEntry">
+					<label for="StatementBreaks" rel="localize[statementBreaks]">Statement Breaks: </label>
+					<input type="text" value="2" name="statementBreaks" id="StatementBreaks" />
+				</div>
+				<div class="FormEntry">
+					<label for="ClauseBreaks" rel="localize[clauseBreaks]">Clause Breaks: </label>
+					<input type="text" value="1" name="clauseBreaks" id="ClauseBreaks" />
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="expandCommaLists" id="ExpandCommaLists" checked="checked" /> <span rel="localize[expandCommaLists]">Expand Comma Lists</span></label>
+					<div class="FormSubEntry">
+						<label><input type="checkbox" name="trailingCommas" id="TrailingCommas" /> <span rel="localize[trailingCommas]">Trailing Commas</span></label>
+					</div>
+					<div class="FormSubEntry">
+						<label><input type="checkbox" name="spaceAfterExpandedComma" id="SpaceAfterComma" /> <span rel="localize[spaceAfterComma]">Space After Comma</span></label>
+					</div>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="expandBooleanExpressions" id="ExpandBooleanExpressions" checked="checked" /> <span rel="localize[expandBooleanExpressions]">Expand Boolean Expressions</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="expandCaseStatements" id="ExpandCaseStatements" checked="checked" /> <span rel="localize[expandCaseExpressions]">Expand CASE Expressions</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="expandBetweenConditions" id="ExpandBetweenConditions" checked="checked" /> <span rel="localize[expandBetweenConditions]">Expand BETWEEN Conditions</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="expandInLists" id="ExpandInLists" checked="checked" /> <span rel="localize[expandInLists]">Expand IN Lists</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="breakJoinOnSections" id="BreakJoinOnSections" /> <span rel="localize[breakJoinOnSections]">Break Join ON Sections</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="uppercaseKeywords" id="UppercaseKeywords" checked="checked" /> <span rel="localize[uppercaseKeywords]">Uppercase Keywords</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="coloring" id="EnableColoring" checked="checked" /> <span rel="localize[enableColoring]">Enable Coloring</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="keywordStandardization" id="EnableKeywordStandardization" checked="checked" /> <span rel="localize[enableKeywordStandardization]">Enable Keyword Standardization</span></label>
+				</div>
+			</div>
+		</div>
+		<div>
+			<label><input type="radio" name="formattingType" value="obfuscation" id="Obfuscate" /> <span rel="localize[obfuscate]">Obfuscate / Minify</span></label>
+			<div class="LabelledFormList" id="ObfuscationOptions">
+				<div class="FormEntry">
+					<label><input type="checkbox" name="randomizeColor" id="EnableColorRandomization" /> <span rel="localize[randomizeColor]">Randomize Colors</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="randomizeLineLengths" id="EnableLineLengthRandomization" /> <span rel="localize[randomizeLineLengths]">Randomize Line Lengths</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="randomizeKeywordCase" id="EnableKeywordCaseRandomization" /> <span rel="localize[randomizeKeywordCase]">Randomize Keyword Case</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="preserveComments" id="EnableCommentPreservation" /> <span rel="localize[preserveComments]">Preserve Comments</span></label>
+				</div>
+				<div class="FormEntry">
+					<label><input type="checkbox" name="enableKeywordSubstitution" id="EnableKeywordSubstitution" /> <span rel="localize[enableKeywordSubstitution]">Keyword Substitution</span></label>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="MainContainer">
+		<div id="tabs"><!-- output area here... -->
+			<ul> 
+				<li><a href="#tabs-1" id="tab1link" rel="localize[inputSql]">Input SQL</a></li> 
+				<li><a href="#tabs-2" id="tab2link" rel="localize[formattedSql]">Formatted SQL</a></li> 
+				<li><a href="#tabs-3" rel="localize[htmlSource]">HTML Source</a></li> 
+			</ul> 
+			<div id="tabs-1"> 
+				<div rel="localize[shortInstructions]">Put your mangled SQL in the box below, then tab or click outside the box (don't forget to play with the options on the right!)
+				</div>
+				<textarea name="inputString" id="inputString" style="width:100%;" rows="35"></textarea>
+			</div> 
+			<div id="tabs-2"> 
+				<div id="outputIFrameContainer">
+					<iframe id="outputFrame" style="width:100%; height:550px; padding: 2px; border: 1px solid; overflow: scroll;" src="blank.htm" frameBorder="0" onload="PageStuff.UI.setIFrameLoaded();"></iframe> 
+				</div>
+				<div id="outputDivContainer" style="display: none; ">
+					<span rel="localize[offlineWarningStart]">Please note, as you're running locally, using "Ctrl-a" to select the formatted output will not work (you'll get the whole page). Instead, you can <b></span><a href="javascript:var goaway = SelectionStuff.SelectText(document.getElementById('outputDiv'));" rel="localize[clickHere]">click here</a><span rel="localize[offlineWarningEnd]"></b> to select the formatted content.</span>
+					<div id="outputDiv" style="width:100%; height:550px; padding: 2px; border: 1px solid; overflow: scroll;" frameBorder="0"></div> 
+				</div>
+				<div id="resultOptions">
+					<a href="/" style="display: none; " id="resultLink" rel="localize[formattedLink]">Link to this formatted result</a>
+				</div>
+			</div> 
+			<div id="tabs-3"> 
+				<textarea name="outputSource" id="outputSource" style="width:100%;" rows="35" readonly="readonly"></textarea> 
+			</div> 
+		</div>
+	</div>
+</div>
+
+<div class="Footer">
+
+Copyright &copy; Tao Klerks 2011-2017, 
+<!-- conveniently generated at http://purplefoot.com/jsemail.html -->
+<script language="javascript">
+eval(unescape('function%20z%28%29%20%7Bvar%20a%3D%27zib.s%27%3Bvar%20b%3D%2'+
+'7oat%27%3Bvar%20c%3D%27krelk%27%3Bvar%20f%3D%27@%27%3Bvar%20'+
+'g%3D%27%27%3Bvar%20h%3D%27%27%3Bvar%20n%3D%27%27%3Bvar%20i%3'+
+'D%27%3Ca%20href%3D%22mailto%3A%27%3Bvar%20l%3D%27%22%20class'+
+'%3D%22%27%3Bvar%20k%3D%27%22%20style%3D%22%27%3Bvar%20m%3D%2'+
+'7%22%3E%27%3Bvar%20j%3D%27%3C/a%3E%27%3Bvar%20d%3Di+e%28b%29'+
+'+f+e%28c%29+e%28a%29+l+g+k+h+m%3Bd+%3D%28n%3D%3D%27%27%29%3F'+
+'e%28b%29+f+e%28c%29+e%28a%29%3An%3Bd+%3Dj%3Bdocument.write%2'+
+'8d%29%3Bfunction%20e%28s%29%7Bvar%20t%3Ds.split%28%27%27%29%'+
+'3Bt.reverse%28%29%3Bs%3Dt.join%28%27%27%29%3Breturn%20s%7D%7'+
+'Dz%28%29%3B'));</script>.
+
+twitter: <a href="https://twitter.com/PoorSQL" >@PoorSQL</a>. 
+
+<!-- Lockerz Share BEGIN -->
+<span class="a2a_kit a2a_default_style" style="float: right;">
+<!--
+<a class="a2a_dd" href="http://www.addtoany.com/share_save?linkurl=http%3A%2F%2Fpoorsql.com&amp;linkname=">Share</a>
+<span class="a2a_divider"></span>
+-->
+<a class="a2a_button_delicious"></a>
+<a class="a2a_button_stumbleupon"></a>
+<a class="a2a_button_twitter"></a>
+<a class="a2a_button_linkedin"></a>
+<a class="a2a_button_google_plus"></a>
+<a class="a2a_button_digg"></a>
+<a class="a2a_button_tumblr"></a>
+<a class="a2a_button_facebook"></a>
+<a class="a2a_button_email"></a>
+</span>
+<script type="text/javascript">
+var a2a_config = a2a_config || {};
+a2a_config.linkurl = "http://poorsql.com";
+</script>
+<script type="text/javascript" src="http://static.addtoany.com/menu/page.js"></script>
+<!-- Lockerz Share END -->
+
+</div>
+
+</div>
+
+<div class="ModalDialog" id="about-dialog" title="About PoorSQL.com" style="display: none; " rel="localize[aboutBox]">
+	<p rel="localize[aboutPara1]">PoorSQL.com is an online SQL formatting service that uses the 
+	<a href="http://architectshack.com/PoorMansTSqlFormatter.ashx">Poor Man's T-SQL Formatter</a> library. 
+	This is an open-source (<a href="https://github.com/TaoK/PoorMansTSqlFormatter/blob/master/LICENSE.txt">AGPL-licensed</a>) 
+	C#/.Net and JS library, and the library, plugins and source are all available for download on the 
+	<a href="http://architectshack.com/PoorMansTSqlFormatter.ashx#Download_5">project page</a>. The 
+	<a href="https://github.com/TaoK/PoorMansTSqlFormatter">source code is hosted on GitHub</a>, and 
+	any feedback, enhancements, and feature requests would be much appreciated!
+	</p>
+	<p rel="localize[aboutPara2]">
+	This page now uses pure client-side JS, and combined with AppCache functionality this means that:
+	<ul>
+	<li>This site does not send the SQL code you provide formatting to any external service - all formatting is done within your browser</li>
+	<li>This site does not require an internet connection - it will keep working equally well when you are offline</li>
+	</ul>
+	</p>
+	<p rel="localize[aboutPara3]">
+	To keep track of updates / changes, follow <a href="https://twitter.com/PoorSQL" >@PoorSQL</a> on Twitter.
+	</p>
+</div>
+
+<div class="ModalDialog" id="tips-dialog" title="PoorSQL.com Tips" style="display: none; " rel="localize[tipsBox]">
+	<p>
+		<span rel="localize[tipsIntro]">Some usage tips:</span>
+		<ul>
+			<li rel="localize[tip_QueryString]">You can specify the SQL to be formatted in the querystring, with an "inputString" parameter.</li>
+			<li rel="localize[tip_Link]">If your provided SQL is quite small, we'll automatically provide a link on the formatted result tab, in case you want to share a query.</li>
+			<li rel="localize[tip_Cookies]">We try to remember your formatting options/settings with a cookie. If you're blocking cookies, you'll just have the default options every time you visit.</li>
+			<li rel="localize[tip_NoFormat]">In standard formatting, you can identify a block of SQL which should NOT be changed - just surround it with [noformat][/noformat] tags in comments.</li>
+			<li rel="localize[tip_Obfuscate]">In standard formatting, you can identify a block of SQL which should be minified - just surround it with [minify][/minify] tags in comments.</li>
+			<li rel="localize[tip_Bugs]">The formatting library has been around for a while, but you may still find previously-unknown issues. If you see something ugly (or, worse, an error!), please contact me (email at the bottom of the page) or log an issue in <a href="https://github.com/TaoK/PoorMansTSqlFormatter/issues">the issue tracker on GitHub</a>.</li>
+		</ul>
+	</p>
+</div>
+
+<div class="ModalDialog" id="demo-dialog" title="Demo Queries" style="display: none; " rel="localize[demosBox]">
+	<p>
+	</p>
+</div>
+
+</body>
+</html>
