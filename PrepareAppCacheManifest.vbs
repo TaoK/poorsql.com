@@ -4,7 +4,7 @@ Const cacheFilePrefix = "CACHE MANIFEST"
 Const networkSectionPrefix = "NETWORK:"
 
 Set badExtensionsRegex = New RegExp
-badExtensionsRegex.Pattern = "\.(asmx|config|dll|appcache)$"
+badExtensionsRegex.Pattern = "((CNAME)|(\.(asmx|config|dll|appcache)))$"
 badExtensionsRegex.IgnoreCase = True
 
 Set objFSO = CreateObject("Scripting.FileSystemObject")
